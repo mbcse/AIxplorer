@@ -17,7 +17,14 @@
     },
   });
 
+  // Debug logs
+  $: if ($messages) console.log('Current messages:', $messages);
+  $: console.log('Is loading:', $isLoading);
+  $: console.log('Error state:', $error);
+
   function formatAssistantMessage(content: string) {
+    if (!content) return '';
+    
     const sections = content.split('\n\n');
     let formattedContent = '';
     
@@ -98,7 +105,7 @@
       }
     });
     
-    return formattedContent;
+    return formattedContent || `<div class="message-text">${content}</div>`;
   }
 
   function extractComplexityBadge(content: string): string {
@@ -131,6 +138,8 @@
   }
 
   function formatTransferSection(content: string) {
+    if (!content) return '<div class="no-transfers">No transfers detected in this transaction</div>';
+    
     const parts = content.split('\n\n');
     let html = '';
     
@@ -168,6 +177,7 @@
   }
 
   function formatList(content: string) {
+    if (!content) return '';
     return content.split('\n')
       .map(item => item.trim())
       .filter(item => item.length > 0)
@@ -184,6 +194,7 @@
   }
 
   function formatAddress(address: string): string {
+    if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
 </script>
@@ -200,24 +211,24 @@
   </div>
   
   <div class="chat-container">
-    <div class="messages-container">
-      {#each $messages as message}
-        <div class="message {message.role}">
-          <div class="avatar {message.role}">
-            {message.role === 'assistant' ? '🤖' : '👤'}
+    <div class="messages-container" id="messages-container">
+      {#if $messages && $messages.length > 0}
+        {#each $messages as message (message.id)}
+          <div class="message {message.role}">
+            <div class="avatar {message.role}">
+              {message.role === 'assistant' ? '🤖' : '👤'}
+            </div>
+            <div class="content">
+              <div class="sender">{message.role === 'assistant' ? 'AIxplorer AI' : 'You'}</div>
+              {#if message.role === 'assistant'}
+                {@html formatAssistantMessage(message.content)}
+              {:else}
+                <div class="message-text">{message.content}</div>
+              {/if}
+            </div>
           </div>
-          <div class="content">
-            <div class="sender">{message.role === 'assistant' ? 'AIxplorer AI' : 'You'}</div>
-            {#if message.role === 'assistant'}
-              {@html formatAssistantMessage(message.content)}
-            {:else}
-              <div class="message-text">{message.content}</div>
-            {/if}
-          </div>
-        </div>
-      {/each}
-      
-      {#if $messages.length === 0}
+        {/each}
+      {:else if !$isLoading}
         <div class="welcome-message">
           <h2>Welcome to AIxplorer!</h2>
           <p>Enter a transaction hash and chain ID or ChainName to analyze blockchain transactions.</p>
@@ -227,29 +238,29 @@
           </div>
         </div>
       {/if}
+
+      {#if $isLoading}
+        <div class="loading">
+          <div class="spinner"></div>
+          <div class="loading-text">Analyzing blockchain transaction...</div>
+          <button type="button" class="stop-button" on:click={stop}>
+            Stop Analysis
+          </button>
+        </div>
+      {/if}
+
+      {#if $error}
+        <div class="error">
+          <div class="error-icon">⚠️</div>
+          <div class="error-text">Analysis failed. Please try again.</div>
+          <button type="button" class="retry-button" on:click={reload}>
+            Retry Analysis
+          </button>
+        </div>
+      {/if}
     </div>
 
-    {#if $isLoading}
-      <div class="loading">
-        <div class="spinner"></div>
-        <div class="loading-text">Analyzing blockchain transaction...</div>
-        <button type="button" class="stop-button" on:click={stop}>
-          Stop Analysis
-        </button>
-      </div>
-    {/if}
-
-    {#if $error}
-      <div class="error">
-        <div class="error-icon">⚠️</div>
-        <div class="error-text">Analysis failed. Please try again.</div>
-        <button type="button" class="retry-button" on:click={reload}>
-          Retry Analysis
-        </button>
-      </div>
-    {/if}
-
-    <form on:submit={handleSubmit} class="input-form">
+    <form on:submit|preventDefault={handleSubmit} class="input-form">
       <input
         bind:value={$input}
         placeholder="Ask about a transaction hash (e.g., analyze 0x123... on polygon)"
@@ -308,41 +319,16 @@
     border-radius: 1rem;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .messages-container {
+    flex: 1;
     height: 70vh;
     overflow-y: auto;
     padding: 2rem;
     scroll-behavior: smooth;
-  }
-
-  .welcome-message {
-    text-align: center;
-    padding: 2rem;
-    background: #f8fafc;
-    border-radius: 0.5rem;
-    margin: 2rem 0;
-  }
-
-  .welcome-message h2 {
-    color: #1e293b;
-    margin-bottom: 1rem;
-  }
-
-  .welcome-message .example {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: #e2e8f0;
-    border-radius: 0.5rem;
-    display: inline-block;
-  }
-
-  .welcome-message code {
-    background: #cbd5e1;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    margin-left: 0.5rem;
   }
 
   .message {
@@ -350,6 +336,12 @@
     gap: 1rem;
     margin-bottom: 1.5rem;
     animation: fadeIn 0.3s ease-out;
+  }
+
+  .message-text {
+    white-space: pre-wrap;
+    color: #475569;
+    line-height: 1.5;
   }
 
   .avatar {
@@ -380,6 +372,34 @@
     font-weight: 500;
     color: #1e293b;
     margin-bottom: 0.5rem;
+  }
+
+  .welcome-message {
+    text-align: center;
+    padding: 2rem;
+    background: #f8fafc;
+    border-radius: 0.5rem;
+    margin: 2rem 0;
+  }
+
+  .welcome-message h2 {
+    color: #1e293b;
+    margin-bottom: 1rem;
+  }
+
+  .welcome-message .example {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #e2e8f0;
+    border-radius: 0.5rem;
+    display: inline-block;
+  }
+
+  .welcome-message code {
+    background: #cbd5e1;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    margin-left: 0.5rem;
   }
 
   .section {
@@ -434,250 +454,250 @@
     color: #2f855a;
     padding: 0.75rem;
     border-left: 4px solid #68d391;
-
   }
 
-.transfer-group {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border-radius: 0.5rem;
-}
-
-.transfer-title {
-  font-size: 1rem;
-  color: #1e293b;
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-}
-
-.transfer-group.native {
-  background: #f0f9ff;
-  border-left: 4px solid #3b82f6;
-}
-
-.transfer-group.erc20 {
-  background: #f0fdf4;
-  border-left: 4px solid #10b981;
-}
-
-.transfer-group.nft {
-  background: #fdf2f8;
-  border-left: 4px solid #ec4899;
-}
-
-.no-transfers {
-  padding: 1rem;
-  color: #64748b;
-  text-align: center;
-  background: #f8fafc;
-  border-radius: 0.5rem;
-  font-style: italic;
-}
-
-.input-form {
-  display: flex;
-  gap: 1rem;
-  padding: 1.5rem;
-  background: #ffffff;
-  border-top: 1px solid #e2e8f0;
-  position: relative;
-}
-
-.main-input {
-  flex: 1;
-  padding: 1rem 1.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  font-size: 1rem;
-  transition: all 0.2s;
-  background: #ffffff;
-  color: #1e293b;
-}
-
-.main-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.main-input:disabled {
-  background: #f8fafc;
-  cursor: not-allowed;
-}
-
-.submit-button {
-  padding: 1rem 2rem;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.submit-button:hover:not(:disabled) {
-  background: #2563eb;
-  transform: translateY(-1px);
-}
-
-.submit-button:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.submit-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.loading {
-  text-align: center;
-  padding: 1.5rem;
-  background: #f8fafc;
-  border-radius: 0.5rem;
-  margin: 1rem;
-  animation: fadeIn 0.3s ease-out;
-}
-
-.loading-text {
-  color: #1e293b;
-  margin: 1rem 0;
-  font-weight: 500;
-}
-
-.spinner {
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 3px solid #e2e8f0;
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto;
-}
-
-.stop-button {
-  background: #ef4444;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 1rem;
-}
-
-.stop-button:hover {
-  background: #dc2626;
-}
-
-.error {
-  text-align: center;
-  padding: 1.5rem;
-  background: #fef2f2;
-  border-radius: 0.5rem;
-  margin: 1rem;
-  animation: fadeIn 0.3s ease-out;
-}
-
-.error-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.error-text {
-  color: #991b1b;
-  margin-bottom: 1rem;
-  font-weight: 500;
-}
-
-.retry-button {
-  background: #10b981;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.retry-button:hover {
-  background: #059669;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 768px) {
-  .chat-container {
-    border-radius: 0;
-  }
-  
-  .input-form {
-    flex-direction: column;
-  }
-  
-  .submit-button {
-    width: 100%;
-  }
-
-  .section {
-    padding: 0.75rem;
-  }
-
-  .complexity-badge,
-  .risk-badge {
-    font-size: 0.75rem;
-  }
-
-  .messages-container {
-    height: calc(100vh - 200px);
+  .transfer-group {
+    margin-bottom: 1rem;
     padding: 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  h1 {
-    font-size: 2rem;
+    border-radius: 0.5rem;
   }
 
-  .subtitle {
+  .transfer-title {
     font-size: 1rem;
+    color: #1e293b;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
   }
 
-  .section-title {
-    font-size: 1rem;
+  .transfer-group.native {
+    background: #f0f9ff;
+    border-left: 4px solid #3b82f6;
+  }
+
+  .transfer-group.erc20 {
+    background: #f0fdf4;
+    border-left: 4px solid #10b981;
+  }
+
+  .transfer-group.nft {
+    background: #fdf2f8;
+    border-left: 4px solid #ec4899;
+  }
+
+  .no-transfers {
+    padding: 1rem;
+    color: #64748b;
+    text-align: center;
+    background: #f8fafc;
+    border-radius: 0.5rem;
+    font-style: italic;
+  }
+
+  .input-form {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    position: relative;
   }
 
   .main-input {
-    font-size: 0.875rem;
-    padding: 0.75rem 1rem;
+    flex: 1;
+    padding: 1rem 1.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background: #ffffff;
+    color: #1e293b;
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
+  .main-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .main-input:disabled {
+    background: #f8fafc;
+    cursor: not-allowed;
+  }
+
+  .submit-button {
+    padding: 1rem 2rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .submit-button:hover:not(:disabled) {
+    background: #2563eb;
+    transform: translateY(-1px);
+  }
+
+  .submit-button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .submit-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-radius: 0.5rem;
+    margin: 1rem;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .loading-text {
+    color: #1e293b;
+    margin: 1rem 0;
+    font-weight: 500;
+  }
+
   .spinner {
-    animation: none;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 3px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
   }
 
-  .message {
-    animation: none;
+  .stop-button {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 1rem;
   }
 
-  .loading,
+  .stop-button:hover {
+    background: #dc2626;
+  }
+
   .error {
-    animation: none;
+    text-align: center;
+    padding: 1.5rem;
+    background: #fef2f2;
+    border-radius: 0.5rem;
+    margin: 1rem;
+    animation: fadeIn 0.3s ease-out;
   }
-}
+
+  .error-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .error-text {
+    color: #991b1b;
+    margin-bottom: 1rem;
+    font-weight: 500;
+  }
+
+  .retry-button {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .retry-button:hover {
+    background: #059669;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 768px) {
+    .chat-container {
+      border-radius: 0;
+    }
+    
+    .input-form {
+      flex-direction: column;
+    }
+    
+    .submit-button {
+      width: 100%;
+    }
+
+    .section {
+      padding: 0.75rem;
+    }
+
+    .complexity-badge,
+    .risk-badge {
+      font-size: 0.75rem;
+    }
+
+    .messages-container {
+      height: calc(100vh - 200px);
+      padding: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    h1 {
+      font-size: 2rem;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+    }
+
+    .section-title {
+      font-size: 1rem;
+    }
+
+    .main-input {
+      font-size: 0.875rem;
+      padding: 0.75rem 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+    }
+
+    .message {
+      animation: none;
+    }
+
+    .loading,
+    .error {
+      animation: none;
+    }
+  }
 </style>
+
