@@ -550,7 +550,7 @@ export const POST = (async ({ request }) => {
   const { messages } = await request.json();
 
   const result = streamText({
-    model: openai('gpt-4'),
+    model: openai('gpt-4o-mini'),
     messages: [
       {
         role: 'system',
@@ -648,7 +648,7 @@ export const POST = (async ({ request }) => {
       }),
     },
     temperature: 0.7,
-    maxSteps: 5,
+    maxSteps: 10,
   });
 
   return result.toDataStreamResponse();

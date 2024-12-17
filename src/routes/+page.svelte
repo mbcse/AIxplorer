@@ -196,7 +196,7 @@
 <section>
   <div class="header">
     <h1>AIxplorer</h1>
-    <p class="subtitle">AI-Powered Blockchain Transaction Analysis</p>
+    <p class="subtitle">AI-Powered Blockchain Transaction Analysis and Explainer</p>
   </div>
   
   <div class="chat-container">
@@ -220,10 +220,10 @@
       {#if $messages.length === 0}
         <div class="welcome-message">
           <h2>Welcome to AIxplorer!</h2>
-          <p>Enter a transaction hash and chain ID to analyze blockchain transactions.</p>
+          <p>Enter a transaction hash and chain ID or ChainName to analyze blockchain transactions.</p>
           <div class="example">
             <strong>Example:</strong>
-            <code>analyze 0x123... on chain 1</code>
+            <code>analyze 0x123... on polygon</code>
           </div>
         </div>
       {/if}
@@ -252,7 +252,7 @@
     <form on:submit={handleSubmit} class="input-form">
       <input
         bind:value={$input}
-        placeholder="Enter transaction hash and chain ID (e.g., analyze 0x123... on chain 1)"
+        placeholder="Ask about a transaction hash (e.g., analyze 0x123... on polygon)"
         disabled={$isLoading || $error != null}
         class="main-input"
       />
